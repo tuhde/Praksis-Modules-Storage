@@ -8,9 +8,15 @@ a storage; this repository has them.
 
 | Module | Backend | Keeps the entities of a type in |
 |---|---|---|
-| `json-file` | `json-file` | one readable JSON file, `<type>.json`; a file changed by hand is read again |
+| `json-file` | `json-file` | one readable JSON file, `<type>.json` |
+| `csv-file` | `csv-file` | one CSV file, `<type>.csv`, that a spreadsheet opens |
 
-(`csv-file` and `jdbc` follow.)
+(`jdbc` follows.) Both file storages share how they keep their files (module `praksis-storage-files`,
+inside their archives): the files are written whole to a temporary file that replaces the old one,
+so a crash leaves the old or the new file; they are readable by their owner only; and a file that is
+changed by hand or by another program while Praksis runs is read again before the next operation,
+which makes a file a way to import and to export. Praksis is the only writer that is safe to run at
+the same time. A file that is not right stops the start with the file and the entity or row named.
 
 ## Build and install
 
@@ -61,20 +67,37 @@ after it, so a crash in between loses the event but never the change.
     "fields": { "subject": "Buy milk", "pinned": true } } ] }
 ```
 
-Times are ISO-8601 text and bytes are Base64. The file is written whole to a temporary file that
-then replaces the old one, so a crash leaves the old or the new file, never half of one; it is
-readable by its owner only. A file changed by hand or by another program while Praksis runs is read
-again before the next operation, which makes the file a way to import and to export. Praksis is the
-only writer that is safe to run at the same time. A file that is not right (not JSON, another
-type, an undeclared field, a value of the wrong type, an id twice) stops the start with the file
-and the entity named.
+Times are ISO-8601 text and bytes are Base64. Settings: `directory` (default: the module's own
+directory in the Praksis home, `data/storage/<name>`; a relative path is below that) and `pretty`
+(indented; default `true`).
 
-Settings: `directory` (default: the module's own directory in the Praksis home, `data/storage/<name>`)
-and `pretty` (indented; default `true`).
+## csv-file
+
+`<directory>/<type>.csv`, UTF-8:
+
+```csv
+id,created,updated,created_by,updated_by,name,email,age
+7f3c…,2026-11-01T10:00:00Z,2026-11-01T10:00:00Z,user,user,"Mei, Ling",mei@example.org,41
+```
+
+The first line names the columns: `id`, `created`, `updated`, `created_by`, `updated_by`, then the
+fields of the type. A missing value is an empty cell and an empty text is `""`; times are ISO-8601
+text, bytes are Base64, a list or a map is JSON in the cell. When the file is read the columns may
+be in any order, a field without a column is missing, a byte order mark and any line end are
+accepted, and `true` may be `TRUE` (a spreadsheet's habit); the file is written with all columns in
+the order above.
+
+**Formulas.** A spreadsheet runs a cell that starts with `=`, `+`, `-`, `@`, a tab or a carriage
+return as a formula, and the texts of entities can come from mail. Such a text is therefore written
+with a `'` in front and read back without it. It round-trips exactly; `escape_formulas = false`
+turns it off.
+
+Settings: `directory` (as above), `delimiter` (one character; default `,`; `;` suits a German
+spreadsheet) and `escape_formulas` (default `true`).
 
 ## For authors of a storage
 
 Implement `it.uhde.praksis.capability.EntityStorage`, provide it as a service, list its name in
 `backends = [...]` of `module.toml`, and extend `EntityStorageContract` from
-`praksis-storage-testkit` in your tests: the same ten tests hold for every storage.
+`praksis-storage-testkit` in your tests: the same twelve tests hold for every storage.
 `FilterMatcher` evaluates filters and sorts in memory for a storage that cannot push them down.

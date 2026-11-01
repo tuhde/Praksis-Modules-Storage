@@ -20,7 +20,9 @@
   <description>Entity storages of Praksis: JSON files, CSV files and JDBC databases, as module archives for 'praksis modules install'.</description>
 
   <modules>
+    <module>praksis-storage-files</module>
     <module>praksis-module-json-file</module>
+    <module>praksis-module-csv-file</module>
     <module>integration</module>
   </modules>
 </project>
