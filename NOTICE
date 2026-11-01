@@ -1,0 +1,7 @@
+Praksis-Modules-Storage
+Copyright 2026 Till Uhde
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+The module archives contain no third-party software besides what the Praksis daemon provides: the
+json-file module uses Jackson (Apache License 2.0), which the daemon ships.

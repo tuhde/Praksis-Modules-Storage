@@ -1,0 +1,13 @@
+format_version = 1
+api_version = 1
+name = "json-file"
+version = "0.1.0"
+module = "it.uhde.praksis.module.jsonfile"
+jdk_modules = ["com.fasterxml.jackson.databind"]
+
+# An entity storage: bind a type to it in praksis.toml with
+#   [entities.storage.contacts]
+#   backend = "json-file"
+#   [entities.bind]
+#   contact = "contacts"
+backends = ["json-file"]
