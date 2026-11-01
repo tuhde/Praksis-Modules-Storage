@@ -23,6 +23,7 @@
     <module>praksis-storage-files</module>
     <module>praksis-module-json-file</module>
     <module>praksis-module-csv-file</module>
+    <module>praksis-module-jdbc</module>
     <module>integration</module>
   </modules>
 </project>

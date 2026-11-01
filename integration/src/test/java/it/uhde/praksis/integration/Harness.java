@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 /** A Praksis home directory, and real daemon and CLI processes run from the runtime image. */
@@ -27,17 +28,50 @@ final class Harness implements AutoCloseable {
 
   /** A home with a ruleset and the storage modules installed from their archives. */
   Harness(String... modules) throws Exception {
+    this(Map.of(), modules);
+  }
+
+  /**
+   * As above, with extra jars put into the archive of a module before it is installed, as a person
+   * puts a JDBC driver there: the key is the module, the value the jars.
+   */
+  Harness(Map<String, List<Path>> extraJars, String... modules) throws Exception {
     home = Files.createTempDirectory("pk");
     assertThat(cli("modules", "lock").exit()).isZero();
     // the storage modules are not in the image: they come from their archives, as for a person
     for (String module : modules) {
-      CliResult installed = cli("modules", "install", archive(module).toString());
+      Path archive = archive(module);
+      List<Path> extra = extraJars.getOrDefault(module, List.of());
+      if (!extra.isEmpty()) {
+        archive = withJars(archive, extra, home.resolve(module + "-with-jars.praksis-module"));
+      }
+      CliResult installed = cli("modules", "install", archive.toString());
       assertThat(installed.exit()).as(installed.output()).isZero();
     }
     Files.createDirectories(home.resolve("ruleset/rules"));
     Files.writeString(
         home.resolve("ruleset/ruleset.toml"), "format_version = 1\nname = \"storage\"\n");
     Files.writeString(home.resolve("policy.toml"), "format_version = 1\n");
+  }
+
+  /** A copy of the archive with more jars in it. */
+  private static Path withJars(Path archive, List<Path> jars, Path target) throws IOException {
+    try (java.util.zip.ZipFile in = new java.util.zip.ZipFile(archive.toFile());
+        java.util.zip.ZipOutputStream out =
+            new java.util.zip.ZipOutputStream(Files.newOutputStream(target))) {
+      for (var entries = in.entries(); entries.hasMoreElements(); ) {
+        java.util.zip.ZipEntry e = entries.nextElement();
+        out.putNextEntry(new java.util.zip.ZipEntry(e.getName()));
+        in.getInputStream(e).transferTo(out);
+        out.closeEntry();
+      }
+      for (Path jar : jars) {
+        out.putNextEntry(new java.util.zip.ZipEntry(jar.getFileName().toString()));
+        Files.copy(jar, out);
+        out.closeEntry();
+      }
+    }
+    return target;
   }
 
   /** The archive that the build of a module made. */

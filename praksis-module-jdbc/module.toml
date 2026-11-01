@@ -1,0 +1,21 @@
+format_version = 1
+api_version = 1
+name = "jdbc"
+version = "0.1.0"
+module = "it.uhde.praksis.module.jdbc"
+jdk_modules = ["java.sql"]
+
+# An entity storage in a database that a JDBC driver reaches. The module ships no driver: put the
+# jar of the driver (PostgreSQL, H2, ...) into the archive next to the module jar before installing
+# it, or use a driver that the daemon has (SQLite). Bind a type to it in praksis.toml with
+#   [entities.storage.contacts]
+#   backend = "jdbc"
+#   url = "jdbc:postgresql://db.example.org/praksis"
+#   user = "praksis"
+#   password_credential = "contacts-db"
+#   [entities.bind]
+#   contact = "contacts"
+#
+# Not in 'network': a database in a file is as local as the daemon's own. The storage refuses a
+# database on another machine itself when the program runs offline.
+backends = ["jdbc"]

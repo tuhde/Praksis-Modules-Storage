@@ -10,8 +10,9 @@ a storage; this repository has them.
 |---|---|---|
 | `json-file` | `json-file` | one readable JSON file, `<type>.json` |
 | `csv-file` | `csv-file` | one CSV file, `<type>.csv`, that a spreadsheet opens |
+| `jdbc` | `jdbc` | a table of a database that a JDBC driver reaches (SQLite, H2 and PostgreSQL are known) |
 
-(`jdbc` follows.) Both file storages share how they keep their files (module `praksis-storage-files`,
+The two file storages share how they keep their files (module `praksis-storage-files`,
 inside their archives): the files are written whole to a temporary file that replaces the old one,
 so a crash leaves the old or the new file; they are readable by their owner only; and a file that is
 changed by hand or by another program while Praksis runs is read again before the next operation,
@@ -95,9 +96,69 @@ turns it off.
 Settings: `directory` (as above), `delimiter` (one character; default `,`; `;` suits a German
 spreadsheet) and `escape_formulas` (default `true`).
 
+## jdbc
+
+One table per type, `<prefix><type>` (default `praksis_note`; dots in a type id become underscores),
+with the columns `id`, `created`, `updated`, `created_by`, `updated_by` and one per field:
+
+| Field type | Column |
+|---|---|
+| `string`, `list`, `map` | text (a list or a map as JSON) |
+| `int` | `BIGINT` |
+| `double` | `DOUBLE PRECISION` |
+| `bool` | `BOOLEAN` |
+| `timestamp`, and `created`, `updated` | `BIGINT`: milliseconds since 1970 |
+| `bytes` | binary |
+
+A unique field has a unique index. Names are quoted, so a field may be called `order`. Filters,
+sorting and paging are done by the database, so other programs can read and write the table: a row
+that another program inserts is an entity, as long as its `id`, times and `created_by` and
+`updated_by` are filled. A table that exists is checked (a column that is not a field of the type
+stops the start; a field without a column gets one); the module makes no other change to a
+database.
+
+```toml
+[entities.storage.shop]
+backend = "jdbc"
+url = "jdbc:postgresql://db.example.org/shop"
+user = "praksis"
+password_credential = "shop-db"     # the name of a credential binding in policy.toml
+table_prefix = "praksis_"           # optional
+
+[entities.bind]
+order = "shop"
+```
+
+```toml
+# policy.toml: the binding that holds the password, for this storage only
+[credential."shop-db"]
+command = ["secret-tool", "lookup", "service", "shop-db"]
+capabilities = ["entity-storage:shop"]
+```
+
+**The driver.** The module ships none. The daemon has the driver of SQLite
+(`url = "jdbc:sqlite:/path/to/file"`); for another database put the jar of its driver into the
+archive next to the module jar and install the archive (or unzip the archive, add the jar, zip it
+again). If several drivers are there, `driver = "org.postgresql.Driver"` names the one. A driver
+may need JDK modules that the runtime image of Praksis lacks; the image has `java.sql`,
+`java.logging`, `java.naming` and `java.transaction.xa`.
+
+**Dialects.** SQLite and H2 are tested here (the same twelve tests pass for both). PostgreSQL has
+a dialect (`dialect = "postgresql"` if the driver reports another product name) that has **not been
+run against a live server by the author**: `JdbcStoragePostgresTest` runs the contract against one
+if `PRAKSIS_TEST_PG_URL` (and `PRAKSIS_TEST_PG_USER`, `PRAKSIS_TEST_PG_PASSWORD`) name an empty
+database, and runs nothing otherwise. MariaDB and MySQL have no dialect yet (their default
+collation does not tell `a` from `A`, which a storage must).
+
+**Offline.** With `offline = true` only a database in a file or in memory (`jdbc:sqlite:`,
+`jdbc:h2:file:`, `jdbc:h2:mem:`) is used; any other url stops the start.
+
+**Transactions.** Each change is its own transaction. Praksis writes the change first and its event
+after it (see above), so a crash between the two loses the event, never the change.
+
 ## For authors of a storage
 
 Implement `it.uhde.praksis.capability.EntityStorage`, provide it as a service, list its name in
 `backends = [...]` of `module.toml`, and extend `EntityStorageContract` from
-`praksis-storage-testkit` in your tests: the same twelve tests hold for every storage.
+`praksis-storage-testkit` in your tests: the same twelve tests hold for every storage (SQLite, the files, JDBC).
 `FilterMatcher` evaluates filters and sorts in memory for a storage that cannot push them down.
